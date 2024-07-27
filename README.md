@@ -437,7 +437,7 @@ Create a Kinesis Data Firehose to deliver CDC coming from MSK to S3
    For example,
    ![msk-firehose-s3-01](assets/msk-firehose-s3-01.png)
    ![msk-firehose-s3-02](assets/msk-firehose-s3-02.png)
-   You will be able to find records such as the following:
+   You will be able to find records like the following from the selected object:
    <pre>
    {
      "before": null,
