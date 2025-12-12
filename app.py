@@ -10,6 +10,7 @@ from cdk_stacks import (
   VpcStack,
   AuroraMysqlStack,
   MSKProvisionedStack,
+  MSKServerlessStack,
   MSKClusterPolicyStack,
   KafkaConnectorStack,
   KinesisFirehoseStack,
@@ -33,7 +34,26 @@ aurora_mysql_stack = AuroraMysqlStack(app, 'AuroraMySQLAsDataSourceStack',
 )
 aurora_mysql_stack.add_dependency(vpc_stack)
 
-msk_stack = MSKProvisionedStack(app, 'MSKStack',
+# Choose between provisioned or serverless MSK cluster
+# Both expose the same interface (msk_cluster_name, msk_security_groups, msk_subnets)
+# so downstream stacks (KafkaConnector, Firehose, etc.) work with either option
+
+# Option 1: Provisioned MSK Cluster
+# - Configurable broker instance types and EBS volumes
+# - Supports ZooKeeper and IAM authentication
+# - More control over cluster configuration
+# msk_stack = MSKProvisionedStack(app, 'MSKStack',
+#   vpc_stack.vpc,
+#   env=AWS_ENV
+# )
+# msk_stack.add_dependency(aurora_mysql_stack)
+
+# Option 2: Serverless MSK Cluster (currently active)
+# - No broker management required
+# - Automatic scaling based on workload
+# - IAM authentication only
+# - No ZooKeeper (uses KRaft)
+msk_stack = MSKServerlessStack(app, 'MSKServerlessStack',
   vpc_stack.vpc,
   env=AWS_ENV
 )
@@ -61,7 +81,8 @@ msk_connector_stack = KafkaConnectorStack(app, 'KafkaConnectorStack',
   aurora_mysql_stack.sg_mysql_client,
   aurora_mysql_stack.rds_credentials,
   msk_stack.msk_cluster_name,
-  msk_stack.msk_broker_node_group_info,
+  msk_stack.msk_security_groups,
+  msk_stack.msk_subnets,
   env=AWS_ENV
 )
 msk_connector_stack.add_dependency(bastion_host)

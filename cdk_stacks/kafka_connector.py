@@ -75,7 +75,7 @@ class KafkaConnectorStack(Stack):
 
   def __init__(self, scope: Construct, construct_id: str,
     vpc, db_hostname, sg_rds_client, rds_credentials,
-    msk_cluster_name, msk_broker_node_group_info,
+    msk_cluster_name, msk_security_groups, msk_subnets,
     **kwargs) -> None:
 
     super().__init__(scope, construct_id, **kwargs)
@@ -153,10 +153,18 @@ class KafkaConnectorStack(Stack):
     rds_secret_name = rds_credentials.secret_name
 
     kafka_connect_vpc_security_group_ids = [sg_rds_client.security_group_id]
-    kafka_connect_vpc_security_group_ids.extend(msk_broker_node_group_info.security_groups)
+    if isinstance(msk_security_groups, list):
+      kafka_connect_vpc_security_group_ids.extend(msk_security_groups)
+    else:
+      # Handle case where msk_security_groups is a CDK token/reference
+      kafka_connect_vpc_security_group_ids.extend(list(msk_security_groups))
 
     kafka_connect_vpc_subnets = []
-    kafka_connect_vpc_subnets.extend(msk_broker_node_group_info.client_subnets)
+    if isinstance(msk_subnets, list):
+      kafka_connect_vpc_subnets.extend(msk_subnets)
+    else:
+      # Handle case where msk_subnets is a CDK token/reference
+      kafka_connect_vpc_subnets.extend(list(msk_subnets))
 
     #XXX: For more information about Debezium connector, see the following url:
     # https://docs.aws.amazon.com/msk/latest/developerguide/mkc-debeziumsource-connector-example.html

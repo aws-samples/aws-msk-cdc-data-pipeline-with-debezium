@@ -95,6 +95,13 @@ Before synthesizing the CloudFormation, make sure getting a Debezium source conn
 
    (a) Copy the following worker configuration properties into a file.<br/>
       To learn more about the configuration properties for the AWS Secrets Manager Config Provider, see [SecretsManagerConfigProvider](https://jcustenborder.github.io/kafka-connect-documentation/projects/kafka-config-provider-aws/configProviders/SecretsManagerConfigProvider.html) in the plugin's documentation.
+
+      Create the worker configurtion file
+      <pre>
+      touch worker-configuration.txt
+      </pre>
+
+      Copy and paste the below into the file that was created
       <pre>
       key.converter=<i>org.apache.kafka.connect.storage.StringConverter</i>
       key.converter.schemas.enable=<i>false</i>
@@ -102,8 +109,14 @@ Before synthesizing the CloudFormation, make sure getting a Debezium source conn
       value.converter.schemas.enable=<i>false</i>
       config.providers.secretManager.class=com.github.jcustenborder.kafka.config.aws.SecretsManagerConfigProvider
       config.providers=secretManager
-      config.providers.secretManager.param.aws.region=<i>us-east-1</i>
+      config.providers.secretManager.param.aws.region=<i>us-west-2</i>
       </pre>
+
+      If on MacOS run the following command to base64 encode the file contents.
+      <pre>
+      openssl base64 -in kafka-connect-encoded-properties.txt -out kafka-connect-encoded-properties.b64
+      </pre>
+
     (b) Run the following AWS CLI command to create your custom worker configuration.<br/>
         Replace the following values:
 
@@ -126,12 +139,12 @@ Before synthesizing the CloudFormation, make sure getting a Debezium source conn
         value.converter.schemas.enable=false
         config.providers.secretManager.class=com.github.jcustenborder.kafka.config.aws.SecretsManagerConfigProvider
         config.providers=secretManager
-        config.providers.secretManager.param.aws.region=us-east-1
+        config.providers.secretManager.param.aws.region=us-west-2
         </pre>
 
     :information_source: To learn more about how to create a Debezium source connector, see [Debezium source connector with configuration provider](https://docs.aws.amazon.com/msk/latest/developerguide/mkc-debeziumsource-connector-example.html)
 
-3. Set up the cdk context configuration file, `cdk.context.json`.
+3. Set up the cdk context configuration file, `cdk.context.json`. Make sure msk_connector_worker_configuration_name and msk_connector_custom_plugin_name matches what is now deployed within AWS.
 
    For example:
     <pre>
@@ -166,22 +179,32 @@ Now you can now synthesize the CloudFormation template for this code.
 
 Create an Aurora MySQL Cluster
 <pre>
+(.venv) $ cdk bootstrap
 (.venv) $ cdk deploy MSKtoS3VpcStack \
                      AuroraMySQLAsDataSourceStack
 </pre>
 
 ## (Step 2) Creating Kafka cluster
 
-Create a MSK Cluster
+Update the MSKProvisionedStack class located in /cdk_stacks/msk.py if an error occures in regards to the version number review the following documentation to locate the recommended KafkaVersion: https://docs.aws.amazon.com/msk/latest/developerguide/supported-kafka-versions.html
+
+Create a MSK Provisioned Cluster (a) or MSK Serverless (b)
+
+a. Run the below for MSK Provisioned (takes 20 - 25 minutes)
 <pre>
 (.venv) $ cdk deploy MSKStack
+</pre>
+
+b. Comment out lines 45 - 49 and comment in 56 - 60 to deploy MSK Serverless (takes 3-5 minutes)
+
+<pre>
+(.venv) $ cdk deploy MSKServerlessStack
 </pre>
 
 Once MSK cluster has been successfully created,
 you should update the MSK cluster configuration by running the following python scripts
 in order to grant Kinesis Data Firehose to access Amazon MSK cluster.
 
-It will take at least `20~25` minutes to update the settings.
 Please wait until the MSK cluster status is `ACTIVE`.
 
 (1) Update **Security settings**
@@ -275,7 +298,7 @@ Create a bastion host to access the Aurora MySQL cluster
 1. Connect to the Aurora cluster writer node.
    <pre>
     $ BASTION_HOST_ID=$(aws cloudformation describe-stacks --stack-name <i>BastionHost</i> | jq -r '.Stacks[0].Outputs | .[] | select(.OutputKey | endswith("EC2InstanceId")) | .OutputValue')
-    $ mssh -r <i>us-east-1</i> ec2-user@${BASTION_HOST_ID}
+    $ mssh -r <i>us-west-2</i> ec2-user@${BASTION_HOST_ID}
     [ec2-user@ip-172-31-7-186 ~]$ mysql -h<i>db-cluster-name</i>.cluster-<i>xxxxxxxxxxxx</i>.<i>region-name</i>.rds.amazonaws.com -uadmin -p
     Enter password:
     Welcome to the MariaDB monitor.  Commands end with ; or \g.
@@ -415,7 +438,7 @@ Create a Kinesis Data Firehose to deliver CDC coming from MSK to S3
 1. Generate test data.
    <pre>
     $ BASTION_HOST_ID=$(aws cloudformation describe-stacks --stack-name <i>BastionHost</i> | jq -r '.Stacks[0].Outputs | .[] | select(.OutputKey | endswith("EC2InstanceId")) |.OutputValue')
-    $ mssh -r <i>us-east-1</i> ec2-user@${BASTION_HOST_ID}
+    $ mssh -r <i>us-west-2</i> ec2-user@${BASTION_HOST_ID}
     [ec2-user@ip-172-31-7-186 ~]$ cat <&ltEOF >requirements-dev.txt
     > boto3
     > dataset==1.5.2
